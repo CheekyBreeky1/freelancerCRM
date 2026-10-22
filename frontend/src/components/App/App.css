@@ -1,0 +1,52 @@
+:root {
+  /* === Основные цвета === */
+  --color-primary: #6366f1;
+  --color-primary-soft: rgba(99, 102, 241, 0.08);
+  --color-primary-soft-hover: rgba(99, 102, 241, 0.12);
+  --color-primary-hover: #4F46E5;
+
+  --color-text: #1a1a1a;
+  --color-text-muted: #6b7280;
+  --color-muted-gray: #9ca3af;
+  --color-status-text: #374151;
+  --color-status-text-strong: #111827;
+  --color-danger-text: #991b1b;
+
+  --color-border: #e5e7eb;
+  --color-bg: #ffffff;
+
+  /* === Поверхности и состояния === */
+  --color-surface: #f9fafb;   /* лёгкий серый фон (логотип, hover кнопок) */
+  --color-hover: #f3f4f6;     /* фон при наведении на ссылки */
+
+  /* === Фоны бейджей статусов === */
+  --color-badge-paid-bg: #f3f4f6;
+  --color-badge-paid-text: #374151;
+  --color-badge-progress-bg: #e5e7eb;
+  --color-badge-progress-text: #111827;
+  --color-badge-overdue-bg: #fee2e2;
+  --color-badge-overdue-text: #991b1b;
+
+  /* === Шрифты === */
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-display: 'Manrope', 'Inter', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+}

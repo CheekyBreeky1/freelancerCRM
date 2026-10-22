@@ -1,0 +1,2017 @@
+openapi: 3.0.3
+
+info:
+  title: FreelanceCRM API
+  description: API для управления задачами и заказчиками фрилансера
+  version: 1.0.0
+  contact:
+    name: FreelanceCRM
+
+servers:
+  - url: http://localhost:3000/api/v1
+    description: Локальный бэкенд
+  - url: https://api.freelancecrm.example.com/api/v1
+    description: Production (заглушка)
+
+tags:
+  - name: auth
+    description: Регистрация, вход, выход, обновление токена
+  - name: users
+    description: Профиль текущего пользователя и настройки
+  - name: employers
+    description: Заказчики
+  - name: tasks
+    description: Задачи
+  - name: subtasks
+    description: Подпункты задач
+
+paths: 
+
+  /auth/register:
+    post:
+      tags:
+        - auth
+      summary: Регистрация нового пользователя
+      description: |
+        Создаёт пользователя, настройки по умолчанию и возвращает access-токен.
+        Refresh-токен устанавливается в HttpOnly cookie с Path=/api/v1/auth/refresh.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: Пользователь создан
+          headers:
+            Set-Cookie:
+              description: Refresh-токен в HttpOnly cookie
+              schema:
+                type: string
+                example: "refreshToken=eyJ...; HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth/refresh; Max-Age=2592000"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Невалидные данные
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email уже занят
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/login:
+    post:
+      tags:
+        - auth
+      summary: Вход в аккаунт
+      description: |
+        Проверяет email и пароль, возвращает access-токен.
+        Refresh-токен устанавливается в HttpOnly cookie с Path=/api/v1/auth/refresh.
+
+        **Правила:**
+        - При неверном email или пароле возвращается 401 с одинаковым сообщением
+          «Неверный email или пароль» — чтобы нельзя было перебором узнать,
+          какие email зарегистрированы.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: |
+            Успешный вход. Access-токен в теле, refresh-токен в HttpOnly cookie.
+          headers:
+            Set-Cookie:
+              description: Refresh-токен в HttpOnly cookie
+              schema:
+                type: string
+                example: "refreshToken=eyJ...; HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth/refresh; Max-Age=2592000"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          description: Невалидные данные (пустой email, неверный формат и т. п.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Неверный email или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Слишком много попыток входа (rate limiting, если включён)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags:
+        - auth
+      summary: Обновить access-токен
+      description: |
+        Читает refresh-токен из HttpOnly cookie (Path=/api/v1/auth/refresh),
+        возвращает новый access-токен.
+
+        **Правила:**
+        - Не требует access-токена в заголовке — работает только по refresh-cookie.
+        - Refresh-токен не ротируется: текущая cookie остаётся валидной.
+        - Тело запроса пустое.
+
+        **Побочные эффекты:** нет. Только возвращается новый access-токен.
+      responses:
+        '200':
+          description: Новый access-токен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RefreshResponse'
+        '401':
+          description: Refresh-cookie отсутствует, истекла или невалидна
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+  /auth/logout:
+    post:
+      tags:
+        - auth
+      summary: Выход из аккаунта
+      description: |
+        Зануляет refresh-cookie (Max-Age=0). Access-токен на сервере не отзывается
+        (JWT stateless) — клиент должен удалить его из памяти самостоятельно.
+
+        **Правила:**
+        - Не требует access-токена — cookie и так привязана к браузеру,
+          «чужой» вызов logout ничего не сломает.
+        - Идемпотентен: повторный вызов безопасен и всегда возвращает 204,
+          даже если cookie уже не было.
+        - Тело запроса пустое.
+
+        **Побочные эффекты:** refresh-cookie удаляется из браузера (Set-Cookie с Max-Age=0).
+      responses:
+        '204':
+          description: Refresh-cookie удалена. Пользователь разлогинен.
+          headers:
+            Set-Cookie:
+              description: Зануление refresh-cookie
+              schema:
+                type: string
+                example: "refreshToken=; HttpOnly; Secure; SameSite=Strict; Path=/api/v1/auth/refresh; Max-Age=0"
+
+  /users/me:
+    get:
+      tags:
+        - users
+      summary: Получить профиль текущего пользователя
+      description: |
+        Возвращает профиль текущего пользователя вместе с настройками (preferences).
+
+        **Правила:**
+        - `userId` не возвращается — пользователь всегда «я».
+        - Удалённые пользователи не возвращаются: если аккаунт мягко удалён, эндпоинт вернёт 401
+          (токен невалиден для удалённого пользователя).
+
+        **Побочные эффекты:** нет.
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Профиль пользователя с настройками
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithPreferences'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                
+    patch:
+      tags:
+        - users
+      summary: Обновить профиль текущего пользователя
+      description: |
+        Частично обновляет профиль текущего пользователя. Поля `name` и `email` опциональны —
+        передаются только те, что нужно изменить.
+
+        **Правила:**
+        - Отсутствие поля — не изменяется.
+        - `null` в `name` или `email` — 400 (оба поля не nullable).
+        - Пустое тело `{}` — ничего не меняется, `updatedAt` не обновляется.
+        - Read-only поля (`id`, `createdAt`, `updatedAt`, `deletedAt`, `preferences`) игнорируются, если переданы.
+        - `password` не принимается — смена пароля через отдельный эндпоинт (в будущем).
+
+        **Побочные эффекты:**
+        - `updatedAt` обновляется, если хотя бы одно поле изменилось.
+
+        **Особенности ответа:**
+        - Ответ идентичен `GET /users/me` — содержит `preferences` для единообразия с моделью.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Профиль обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserWithPreferences'
+        '400':
+          description: Невалидные данные (пустое имя, неверный формат email, `null` в обязательном поле)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Email уже используется другим пользователем
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+  
+  /users/me/preferences:
+    patch:
+      tags:
+        - users
+      summary: Обновить настройки текущего пользователя
+      description: |
+        Частично обновляет настройки текущего пользователя. Все поля опциональны —
+        передаются только те, что нужно изменить.
+
+        **Правила:**
+        - Отсутствие поля — не изменяется.
+        - `null` в любом поле — 400 (все поля не nullable).
+        - Пустое тело `{}` — ничего не меняется, ответ 200 с текущими настройками.
+        - Изменение настроек **не влияет** на `User.updatedAt` — настройки не часть профиля.
+
+        **Побочные эффекты:** нет.
+
+        **Особенности ответа:**
+        - Возвращаются только настройки (без профиля), симметрично тому, что меняется.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserPreferencesRequest'
+      responses:
+        '200':
+          description: Настройки обновлены
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserPreferences'
+        '400':
+          description: Невалидное значение одного из полей (не из enum, `null`)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /employers:
+    get:
+      tags:
+        - employers
+      summary: Получить список заказчиков
+      description: |
+        Возвращает список заказчиков текущего пользователя с фильтрацией, поиском и сортировкой.
+
+        **Правила:**
+        - Удалённые заказчики (`deletedAt != null`) не возвращаются.
+        - Все query-параметры опциональны и комбинируются через AND.
+        - Дублирование одного параметра (`?status=a&status=b`) — 400.
+        - `?employerId` не используется: фильтрация по заказчику не имеет смысла в списке заказчиков.
+
+        **Особенности:**
+        - `projectsCount` вычисляется на сервере для каждого заказчика.
+        - Поле `subTasks` отсутствует (оно только у задач).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Фильтр по статусу заказчика
+          schema:
+            type: string
+            enum:
+              - new
+              - active
+              - archived
+          example: active
+        - name: search
+          in: query
+          required: false
+          description: |
+            Поиск по подстроке в `name` или `company`, регистронезависимый.
+            Значение обрезается по краям (`trim`) перед поиском.
+            Если после `trim` строка пуста — фильтр не применяется.
+          schema:
+            type: string
+            maxLength: 100
+          example: "иван"
+        - name: sort
+          in: query
+          required: false
+          description: |
+            Сортировка. Поддерживается только одно поле.
+            Префикс `-` — убывание.
+
+            **Допустимые значения:**
+            - `name` — по имени возрастание.
+            - `-name` — по имени убывание.
+            - `createdAt` — по дате создания возрастание (сначала старые).
+            - `-createdAt` — по дате создания убывание (сначала новые).
+
+            **По умолчанию:** `-createdAt`.
+          schema:
+            type: string
+            enum:
+              - name
+              - "-name"
+              - createdAt
+              - "-createdAt"
+          example: "-createdAt"
+      responses:
+        '200':
+          description: Список заказчиков
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployerListResponse'
+        '400':
+          description: Невалидный query-параметр (не из enum, дубликат)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - employers
+      summary: Создать заказчика
+      description: |
+        Создаёт нового заказчика для текущего пользователя.
+
+        **Правила:**
+        - Обязательно только `name`. Остальные поля опциональны.
+        - `status` опционален, по умолчанию `new`.
+        - `userId` не принимается — берётся из access-токена.
+        - Read-only поля (`id`, `projectsCount`, `createdAt`, `updatedAt`, `deletedAt`) игнорируются, если переданы.
+
+        **Побочные эффекты:**
+        - Создаётся запись `Employer` с `userId` из токена.
+        - `projectsCount` у нового заказчика всегда `0`.
+
+        **Особенности ответа:**
+        - Возвращается полное представление заказчика (как в `GET /employers/:id`).
+        - Заголовок `Location` указывает на URL созданного заказчика.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEmployerRequest'
+      responses:
+        '201':
+          description: Заказчик создан
+          headers:
+            Location:
+              description: URL созданного заказчика
+              schema:
+                type: string
+                example: "/api/v1/employers/ABC123de45"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employer'
+        '400':
+          description: Невалидные данные (пустое имя, неверный формат email и т. п.)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /employers/{id}:
+    get:
+      tags:
+        - employers
+      summary: Получить заказчика по ID
+      description: |
+        Возвращает одного заказчика текущего пользователя вместе с вычисляемым `projectsCount`.
+
+        **Правила:**
+        - `userId` не возвращается — заказчик всегда принадлежит текущему пользователю.
+        - Удалённые заказчики (`deletedAt != null`) не возвращаются — 404.
+
+        **Особенности ответа:**
+        - `projectsCount` вычисляется на сервере.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Идентификатор заказчика (nanoid(10))
+          schema:
+            type: string
+          example: "ABC123de45"
+      responses:
+        '200':
+          description: Заказчик найден
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employer'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            Заказчик не найден. Возвращается в случаях:
+            - заказчик не существует;
+            - заказчик принадлежит другому пользователю;
+            - заказчик мягко удалён (`deletedAt != null`);
+            - `id` имеет невалидный формат.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - employers
+      summary: Обновить заказчика
+      description: |
+        Частично обновляет заказчика. Все поля опциональны — передаются только те, что нужно изменить.
+
+        **Правила:**
+        - Отсутствие поля — не изменяется.
+        - `null` в nullable-поле (`company`, `email`, `phoneNumber`, `telegram`, `website`, `notes`) — очистка значения.
+        - `null` в обязательном поле (`name`, `status`) — 400.
+        - Значение, не входящее в enum (`status`) — 400.
+        - Пустое тело `{}` — ничего не меняется, `updatedAt` не обновляется.
+        - Read-only поля (`id`, `userId`, `projectsCount`, `createdAt`, `updatedAt`, `deletedAt`) игнорируются, если переданы.
+
+        **Побочные эффекты:**
+        - `updatedAt` обновляется, если хотя бы одно поле изменилось.
+
+        **Особенности ответа:**
+        - Возвращается полное представление заказчика (как в `GET /employers/{id}`).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Идентификатор заказчика (nanoid(10))
+          schema:
+            type: string
+          example: "ABC123de45"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEmployerRequest'
+      responses:
+        '200':
+          description: Заказчик обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employer'
+        '400':
+          description: Невалидные данные (пустое имя, `null` в обязательном поле, невалидный enum)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            Заказчик не найден. Возвращается в случаях:
+            - заказчик не существует;
+            - заказчик принадлежит другому пользователю;
+            - заказчик мягко удалён (`deletedAt != null`);
+            - `id` имеет невалидный формат.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - employers
+      summary: Удалить заказчика
+      description: |
+        Мягко удаляет заказчика: `deletedAt` устанавливается в текущий момент времени.
+        Запись остаётся в базе, но становится недоступна через API.
+
+        **Правила:**
+        - Идемпотентен: повторный вызов для уже удалённого заказчика возвращает 204.
+        - `userId` не принимается — проверяется по access-токену.
+
+        **Побочные эффекты:**
+        - Заказчик мягко удаляется (`deletedAt` устанавливается).
+        - У всех задач этого заказчика (включая завершённые) поле `employerId` становится `null`.
+        - Сами задачи не удаляются — они остаются, но без заказчика.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Идентификатор заказчика (nanoid(10))
+          schema:
+            type: string
+          example: "ABC123de45"
+      responses:
+        '204':
+          description: |
+            Заказчик мягко удалён. У всех его задач `employerId` стал `null`.
+            Если заказчик уже был удалён — 204 (идемпотентно).
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            Заказчик не найден. Возвращается в случаях:
+            - заказчик не существует;
+            - заказчик принадлежит другому пользователю;
+            - `id` имеет невалидный формат.
+
+            Обрати внимание: если заказчик уже мягко удалён — возвращается 204,
+            а не 404 (идемпотентность).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tasks:
+    get:
+      tags:
+        - tasks
+      summary: Получить список задач
+      description: |
+        Возвращает список задач текущего пользователя с фильтрацией, поиском и сортировкой.
+
+        **Правила:**
+        - Удалённые задачи (`deletedAt != null`) не возвращаются.
+        - Все query-параметры опциональны и комбинируются через AND.
+        - Дублирование одного параметра (`?status=a&status=b`) — 400.
+        - `subTasks` в ответе отсутствует — для получения подпунктов используйте `GET /tasks/{id}`.
+        - Если `employerId` не существует, чужой, удалён или имеет невалидный формат — возвращается пустой список `{ items: [], total: 0 }`.
+
+        **Сортировка по умолчанию** (если `sort` не передан):
+        1. Сначала незавершённые (`progress`, `review`), потом завершённые (`done`, `paid`).
+        2. Внутри каждой группы — по `deadline` возрастанию, `null` в конце.
+        3. При совпадении — по `createdAt` возрастанию.
+
+        Если `sort` передан — он **полностью переопределяет** сортировку по умолчанию.
+
+        **Особенности ответа:**
+        - `total` — количество задач, удовлетворяющих фильтрам.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Фильтр по статусу задачи
+          schema:
+            type: string
+            enum:
+              - progress
+              - review
+              - done
+              - paid
+          example: progress
+        - name: priority
+          in: query
+          required: false
+          description: Фильтр по приоритету
+          schema:
+            type: string
+            enum:
+              - low
+              - medium
+              - high
+          example: high
+        - name: employerId
+          in: query
+          required: false
+          description: |
+            Фильтр по заказчику. Если заказчик не существует, чужой, удалён
+            или имеет невалидный формат — возвращается пустой список.
+          schema:
+            type: string
+          example: "ABC123de45"
+        - name: search
+          in: query
+          required: false
+          description: |
+            Поиск по подстроке в `title`, регистронезависимый.
+            Значение обрезается по краям (`trim`) перед поиском.
+            Если после `trim` строка пуста — фильтр не применяется.
+          schema:
+            type: string
+            maxLength: 100
+          example: "лендинг"
+        - name: sort
+          in: query
+          required: false
+          description: |
+            Сортировка. Поддерживается только одно поле. Префикс `-` — убывание.
+
+            **Допустимые значения:**
+            - `deadline` — по дедлайну возрастанию, `null` в конце.
+            - `-deadline` — по дедлайну убыванию, `null` в конце.
+            - `createdAt` — по дате создания возрастанию.
+            - `-createdAt` — по дате создания убыванию.
+            - `priority` — по приоритету: `high → medium → low`.
+            - `-priority` — по приоритету в обратном порядке: `low → medium → high`.
+
+            **По умолчанию:** специальная сортировка (см. описание эндпоинта).
+          schema:
+            type: string
+            enum:
+              - deadline
+              - "-deadline"
+              - createdAt
+              - "-createdAt"
+              - priority
+              - "-priority"
+          example: "-createdAt"
+      responses:
+        '200':
+          description: Список задач
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskListResponse'
+        '400':
+          description: Невалидный query-параметр (не из enum, дубликат)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - tasks
+      summary: Создать задачу
+      description: |
+        Создаёт задачу для текущего пользователя. Опционально — вместе с подпунктами.
+
+        **Правила:**
+        - Обязательно только `title`. Остальные поля опциональны.
+        - `employerId` опционален. `null` — задача без заказчика.
+        - Если `employerId` передан и не существует / чужой / удалён — 400 VALIDATION_ERROR, `reason: not_found`.
+        - `userId` не принимается — берётся из access-токена.
+        - Read-only поля (`id`, `createdAt`, `updatedAt`, `deletedAt`) игнорируются, если переданы.
+        - `subTasks` опционален. Если не передан или пуст — задача создаётся без подпунктов.
+        - `id` и `createdAt` подпунктов генерируются сервером; если переданы — игнорируются.
+        - `order` подпунктов обязателен и должен быть уникален в пределах задачи. Дубликат — 400, `reason: not_unique`.
+        - `order` не обязан быть непрерывным — пропуски допустимы (`0, 1, 5`).
+
+        **Побочные эффекты:**
+        - Создаётся задача с `userId` из токена.
+        - Создаются подпункты, если переданы.
+        - Если `currency` не передана — берётся из `UserPreferences.defaultCurrency`, иначе `RUB`.
+
+        **Особенности ответа:**
+        - Возвращается задача с `subTasks` (отсортированы по `order`).
+        - Заголовок `Location` указывает на URL созданной задачи.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTaskRequest'
+      responses:
+        '201':
+          description: Задача создана
+          headers:
+            Location:
+              description: URL созданной задачи
+              schema:
+                type: string
+                example: "/api/v1/tasks/fghte53Cf3"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          description: |
+            Невалидные данные. Возвращается в случаях:
+            - отсутствует или пустое `title`;
+            - невалидное значение enum (`currency`, `priority`, `status`);
+            - `payment` отрицательный;
+            - `employerId` не существует / чужой / удалён (`reason: not_found`);
+            - дубликат `order` в `subTasks` (`reason: not_unique`);
+            - `order` или `text` подпункта отсутствуют / невалидны.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tasks/{id}:
+    get:
+      tags:
+        - tasks
+      summary: Получить задачу по ID
+      description: |
+        Возвращает одну задачу текущего пользователя вместе с подпунктами.
+
+        **Правила:**
+        - Удалённые задачи (`deletedAt != null`) не возвращаются — 404.
+        - `userId` не возвращается — задача всегда принадлежит текущему пользователю.
+
+        **Особенности ответа:**
+        - `subTasks` отсортированы по возрастанию `order`.
+        - Если подпунктов нет — `subTasks: []`.
+        - Если у задачи нет заказчика — `employerId: null`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Идентификатор задачи (nanoid(10))
+          schema:
+            type: string
+          example: "fghte53Cf3"
+      responses:
+        '200':
+          description: Задача найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            Задача не найдена. Возвращается в случаях:
+            - задача не существует;
+            - задача принадлежит другому пользователю;
+            - задача мягко удалена (`deletedAt != null`);
+            - `id` имеет невалидный формат.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    patch:
+      tags:
+        - tasks
+      summary: Обновить задачу
+      description: |
+        Частично обновляет задачу. Все поля опциональны — передаются только те, что нужно изменить.
+        Подпункты не затрагиваются.
+
+        **Правила:**
+        - Отсутствие поля — не изменяется.
+        - `null` в nullable-поле (`employerId`, `description`, `deadline`) — очистка значения.
+        - `employerId: null` — отвязать задачу от заказчика.
+        - `null` в обязательном поле (`title`, `currency`, `priority`, `status`, `payment`) — 400.
+        - Значение, не входящее в enum (`currency`, `priority`, `status`) — 400.
+        - Если `employerId` передан и не существует / чужой / удалён — 400 VALIDATION_ERROR, `reason: not_found`.
+        - Пустое тело `{}` — ничего не меняется, `updatedAt` не обновляется.
+        - Read-only поля (`id`, `userId`, `createdAt`, `updatedAt`, `deletedAt`) игнорируются, если переданы.
+        - `subTasks` в теле игнорируется — для управления подпунктами используйте `/tasks/{id}/subtasks`.
+        - Ограничений на переходы между статусами нет — можно установить любое значение из enum.
+
+        **Побочные эффекты:**
+        - `updatedAt` обновляется, если хотя бы одно поле изменилось.
+
+        **Особенности ответа:**
+        - Ответ идентичен `GET /tasks/{id}` — содержит `subTasks` для единообразия с моделью.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Идентификатор задачи (nanoid(10))
+          schema:
+            type: string
+          example: "fghte53Cf3"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTaskRequest'
+      responses:
+        '200':
+          description: Задача обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          description: |
+            Невалидные данные. Возвращается в случаях:
+            - `null` в обязательном поле (`title`, `currency`, `priority`, `status`, `payment`);
+            - невалидное значение enum (`currency`, `priority`, `status`);
+            - `payment` отрицательный;
+            - `employerId` не существует / чужой / удалён (`reason: not_found`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            Задача не найдена. Возвращается в случаях:
+            - задача не существует;
+            - задача принадлежит другому пользователю;
+            - задача мягко удалена (`deletedAt != null`);
+            - `id` имеет невалидный формат.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - tasks
+      summary: Удалить задачу
+      description: |
+        Мягко удаляет задачу: `deletedAt` устанавливается в текущий момент времени.
+        Запись остаётся в базе, но становится недоступна через API.
+
+        **Правила:**
+        - Идемпотентен: повторный вызов для уже удалённой задачи возвращает 204.
+        - `userId` не принимается — проверяется по access-токену.
+
+        **Побочные эффекты:**
+        - Задача мягко удаляется (`deletedAt` устанавливается).
+        - Подпункты задачи **не изменяются** (у них нет своего `deletedAt`),
+          но становятся недоступны через API, так как их родительская задача скрыта.
+        - Все операции над подпунктами удалённой задачи возвращают 404.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Идентификатор задачи (nanoid(10))
+          schema:
+            type: string
+          example: "fghte53Cf3"
+      responses:
+        '204':
+          description: |
+            Задача мягко удалена. Подпункты не изменены, но недоступны через API.
+            Если задача уже была удалена — 204 (идемпотентно).
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            Задача не найдена. Возвращается в случаях:
+            - задача не существует;
+            - задача принадлежит другому пользователю;
+            - `id` имеет невалидный формат.
+
+            Обрати внимание: если задача уже мягко удалена — возвращается 204,
+            а не 404 (идемпотентность).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tasks/{taskId}/subtasks:
+    get:
+      tags:
+        - subtasks
+      summary: Получить список подпунктов задачи
+      description: |
+        Возвращает список подпунктов задачи, отсортированный по возрастанию `order`.
+
+        **Правила:**
+        - Работает только в контексте живой (не удалённой) задачи.
+        - Если задача не существует / чужая / удалена — 404 «Задача не найдена».
+        - Если подпунктов нет — возвращается пустой массив `[]`.
+
+        **Особенности ответа:**
+        - Обёртка `{ items, total }` не используется: подпункты — часть задачи,
+          пагинация и фильтры не предусмотрены.
+        - `subtaskId` в этом эндпоинте не участвует — возвращаются все подпункты задачи.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          description: Идентификатор задачи (nanoid(10))
+          schema:
+            type: string
+          example: "fghte53Cf3"
+      responses:
+        '200':
+          description: Список подпунктов (может быть пустым)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubTask'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            Задача не найдена. Возвращается в случаях:
+            - задача не существует;
+            - задача принадлежит другому пользователю;
+            - задача мягко удалена (`deletedAt != null`);
+            - `taskId` имеет невалидный формат.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    post:
+      tags:
+        - subtasks
+      summary: Создать подпункт в задаче
+      description: |
+        Создаёт подпункт в задаче. Работает только в контексте живой (не удалённой) задачи.
+
+        **Правила:**
+        - `order` обязателен. Если не передан или невалиден (не целое, отрицательный) — 400.
+        - `order` должен быть уникален в пределах задачи. Если уже занят — 400, `reason: not_unique`.
+        - `order` не обязан быть непрерывным — пропуски допустимы (`0, 1, 5` — валидно).
+        - `isComplete` опционален, default `false`.
+        - `text` обязателен. Если пустой или длиннее 100 символов — 400.
+        - `id` и `createdAt` генерируются сервером; если клиент их передал — игнорируются.
+
+        **Побочные эффекты:**
+        - Создаётся запись `subTask`, привязанная к задаче `taskId`.
+
+        **Особенности ответа:**
+        - Возвращается созданный подпункт целиком.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          description: Идентификатор задачи (nanoid(10))
+          schema:
+            type: string
+          example: "fghte53Cf3"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSubTaskRequest'
+      responses:
+        '201':
+          description: Подпункт создан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubTask'
+        '400':
+          description: |
+            Невалидные данные. Возвращается в случаях:
+            - `order` отсутствует или невалиден (не целое, отрицательный);
+            - `order` уже занят другим подпунктом в задаче (`reason: not_unique`);
+            - `text` отсутствует, пустой или длиннее 100 символов.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            Задача не найдена. Возвращается в случаях:
+            - задача не существует;
+            - задача принадлежит другому пользователю;
+            - задача мягко удалена (`deletedAt != null`);
+            - `taskId` имеет невалидный формат.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /tasks/{taskId}/subtasks/{subtaskId}:
+    patch:
+      tags:
+        - subtasks
+      summary: Обновить подпункт
+      description: |
+        Частично обновляет подпункт в задаче. Все поля опциональны.
+
+        **Правила:**
+        - Отсутствие поля — не изменяется.
+        - `null` в любом поле — 400 (все поля не nullable).
+        - Если `order` передан и совпадает с текущим значением подпункта — не ошибка, 200.
+        - Если `order` передан и уже занят **другим** подпунктом в задаче — 400, `reason: not_unique`.
+        - Пустое тело `{}` — ничего не меняется, 200 с текущим объектом.
+        - Работает только в контексте живой (не удалённой) задачи.
+
+        **Побочные эффекты:** нет.
+
+        **Особенности ответа:**
+        - Возвращается обновлённый подпункт целиком.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          description: Идентификатор задачи (nanoid(10))
+          schema:
+            type: string
+          example: "fghte53Cf3"
+        - name: subtaskId
+          in: path
+          required: true
+          description: Идентификатор подпункта (nanoid(10))
+          schema:
+            type: string
+          example: "fgotj53Cf3"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSubTaskRequest'
+      responses:
+        '200':
+          description: Подпункт обновлён
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubTask'
+        '400':
+          description: |
+            Невалидные данные. Возвращается в случаях:
+            - `null` в любом поле;
+            - `order` невалиден (не целое, отрицательный);
+            - `order` уже занят другим подпунктом в задаче (`reason: not_unique`);
+            - `text` пустой или длиннее 100 символов.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            **Задача не найдена** — если задача не существует / чужая / удалена / невалидный `taskId`.
+
+            **Подпункт не найден** — если подпункт не существует / принадлежит другой задаче / невалидный `subtaskId`.
+
+            В обоих случаях код `404 NOT_FOUND`, но `message` в теле ошибки различается:
+            «Задача не найдена» или «Подпункт не найден».
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+    delete:
+      tags:
+        - subtasks
+      summary: Удалить подпункт
+      description: |
+        Жёстко удаляет подпункт из задачи. Запись физически удаляется из базы.
+
+        **Правила:**
+        - Удаление жёсткое: `deletedAt` у подпунктов нет.
+        - **Не идемпотентен**: повторный вызов для уже удалённого подпункта возвращает 404.
+        - `order` остальных подпунктов задачи **не пересчитывается** — пропуски допустимы.
+        - Работает только в контексте живой (не удалённой) задачи.
+
+        **Побочные эффекты:**
+        - Запись `subTask` физически удаляется.
+        - `order` остальных подпунктов не меняется.
+
+        **Особенности ответа:**
+        - `204 No Content` — тела нет.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          description: Идентификатор задачи (nanoid(10))
+          schema:
+            type: string
+          example: "fghte53Cf3"
+        - name: subtaskId
+          in: path
+          required: true
+          description: Идентификатор подпункта (nanoid(10))
+          schema:
+            type: string
+          example: "fgotj53Cf3"
+      responses:
+        '204':
+          description: Подпункт удалён. Тела нет.
+        '401':
+          description: Токен отсутствует, невалиден или истёк
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: |
+            **Задача не найдена** — если задача не существует / чужая / удалена / невалидный `taskId`.
+
+            **Подпункт не найден** — если подпункт не существует / принадлежит другой задаче / невалидный `subtaskId`.
+
+            В обоих случаях код `404 NOT_FOUND`, но `message` в теле ошибки различается:
+            «Задача не найдена» или «Подпункт не найден».
+
+            **Важно:** повторный `DELETE` для уже удалённого подпункта возвращает `404` —
+            идемпотентности нет, в отличие от `DELETE /tasks/{id}` и `DELETE /employers/{id}`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+
+  
+  
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: >
+        Access-токен в заголовке Authorization.
+        Получается через POST /auth/login или POST /auth/register.
+
+  schemas: 
+    User:
+      type: object
+      required:
+        - id
+        - name
+        - email
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор пользователя (nanoid)
+          example: "u_abc123xy"
+          readOnly: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Алексей"
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: "alex@example.com"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-10-01T10:00:00Z"
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-10-01T10:00:00Z"
+          readOnly: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+          readOnly: true
+          
+    UserPreferences:
+      type: object
+      required:
+        - theme
+        - locale
+        - defaultCurrency
+      properties:
+        theme:
+          type: string
+          enum:
+            - light
+            - dark
+          default: light
+          description: Тема оформления
+          example: light
+        locale:
+          type: string
+          enum:
+            - ru-RU
+            - en-US
+          description: Язык интерфейса
+          example: ru-RU
+        defaultCurrency:
+          type: string
+          enum:
+            - RUB
+            - EUR
+            - USD
+          default: RUB
+          description: Валюта по умолчанию для новых задач
+          example: RUB
+          
+    UserWithPreferences:
+      allOf:
+        - $ref: '#/components/schemas/User'
+        - type: object
+          required:
+            - preferences
+          properties:
+            preferences:
+              $ref: '#/components/schemas/UserPreferences'
+          
+    Employer:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор заказчика (nanoid)
+          example: "ABC123de45"
+          readOnly: true
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Иван"
+        status:
+          type: string
+          enum:
+            - new
+            - active
+            - archived
+          default: new
+          description: Статус отношений с заказчиком
+          example: "new"
+        company:
+          type: string
+          nullable: true
+          maxLength: 200
+          example: "ООО Вектор"
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          nullable: true
+          example: "example@gmail.com"
+        phoneNumber:
+          type: string
+          maxLength: 30
+          nullable: true
+          description: Свободный формат, только ограничение по длине
+          example: "8(999)875 33 44"
+        telegram:
+          type: string
+          maxLength: 64
+          nullable: true
+          example: "IvanVector26"
+        website:
+          type: string
+          format: uri
+          maxLength: 2048
+          nullable: true
+          example: "https://vector.com"
+        notes:
+          type: string
+          maxLength: 5000
+          nullable: true
+          example: "Предпочитает общение в telegram"
+        projectsCount:
+          type: integer
+          minimum: 0
+          description: Количество не удалённых задач заказчика (вычисляется на сервере)
+          readOnly: true
+          example: 4
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-10-08T12:00:00Z"
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-10-08T12:00:00Z"
+          readOnly: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+          readOnly: true
+          
+    SubTask:
+      type: object
+      required:
+        - id
+        - taskId
+        - order
+        - isComplete
+        - text
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор подпункта (nanoid)
+          example: "fgotj53Cf3"
+          readOnly: true
+        taskId:
+          type: string
+          description: Идентификатор задачи, к которой принадлежит подпункт
+          example: "fghte53Cf3"
+          readOnly: true
+        order:
+          type: integer
+          minimum: 0
+          description: Порядок подпункта в задаче (уникален в пределах задачи)
+          example: 0
+        isComplete:
+          type: boolean
+          default: false
+          description: Выполнен ли подпункт
+          example: false
+        text:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Договориться об оплате"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-10-08T12:00:00Z"
+          readOnly: true
+          
+    Task:
+      type: object
+      required:
+        - id
+        - title
+        - currency
+        - priority
+        - status
+        - payment
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          description: Уникальный идентификатор задачи (nanoid)
+          example: "fghte53Cf3"
+          readOnly: true
+        employerId:
+          type: string
+          nullable: true
+          description: Идентификатор заказчика. null — задача без заказчика
+          example: "ABC123de45"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: "Сделать лендинг"
+        currency:
+          type: string
+          enum:
+            - RUB
+            - EUR
+            - USD
+          default: RUB
+          description: Валюта задачи. Если не передана — берётся из UserPreferences.defaultCurrency
+          example: RUB
+        priority:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          default: medium
+          example: medium
+        status:
+          type: string
+          enum:
+            - progress
+            - review
+            - done
+            - paid
+          default: progress
+          example: progress
+        description:
+          type: string
+          maxLength: 5000
+          nullable: true
+          example: "Заказчик предпочитает синие тона"
+        payment:
+          type: number
+          minimum: 0
+          default: 0
+          description: Оплата в валюте задачи. 0 — если не указана
+          example: 4500
+        deadline:
+          type: string
+          format: date
+          nullable: true
+          description: Дедлайн в формате YYYY-MM-DD
+          example: "2026-10-08"
+        subTasks:
+          type: array
+          description: >
+            Подпункты задачи. Присутствует в GET /tasks/:id, POST /tasks и PATCH /tasks/:id.
+            В GET /tasks (список) отсутствует.
+          items:
+            $ref: '#/components/schemas/SubTask'
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-10-08T12:00:00Z"
+          readOnly: true
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-10-08T12:00:00Z"
+          readOnly: true
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+          readOnly: true
+          
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: object
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+              description: >
+                Машиночитаемый код ошибки. Используется клиентом для обработки
+                (например, чтобы отличить TOKEN_EXPIRED от UNAUTHORIZED).
+              example: "VALIDATION_ERROR"
+              enum:
+                - VALIDATION_ERROR
+                - UNAUTHORIZED
+                - TOKEN_EXPIRED
+                - NOT_FOUND
+                - CONFLICT
+                - EMAIL_TAKEN
+            message:
+              type: string
+              description: Человекочитаемое описание ошибки (для разработчика, не для UI)
+              example: "Невалидные данные"
+            details:
+              type: array
+              description: Детали валидации — какие поля не прошли проверку. Присутствует только для VALIDATION_ERROR
+              items:
+                type: object
+                required:
+                  - field
+                  - reason
+                properties:
+                  field:
+                    type: string
+                    description: Имя поля, в котором ошибка
+                    example: "status"
+                  reason:
+                    type: string
+                    description: >
+                      Причина ошибки в snake_case. Например, invalid_value,
+                      not_unique, null_or_empty, too_long, not_found
+                    example: "invalid_value"
+                    
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: "alex@example.com"
+        password:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "secret123"
+
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Алексей"
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: "alex@example.com"
+        password:
+          type: string
+          minLength: 8
+          maxLength: 100
+          example: "secret123"
+
+    AuthResponse:
+      type: object
+      required:
+        - user
+        - accessToken
+      properties:
+        user:
+          $ref: '#/components/schemas/UserWithPreferences'
+        accessToken:
+          type: string
+          description: JWT access-токен для заголовка Authorization
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+          
+    RefreshResponse:
+      type: object
+      required:
+        - accessToken
+      properties:
+        accessToken:
+          type: string
+          example: "eyJhbGciOi..."
+          
+    UpdateUserRequest:
+      type: object
+      description: Тело запроса для частичного обновления профиля. Все поля опциональны.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Алексей"
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          example: "new@example.com"
+    
+    UpdateUserPreferencesRequest:
+      type: object
+      description: Тело запроса для частичного обновления настроек. Все поля опциональны.
+      properties:
+        theme:
+          type: string
+          enum:
+            - light
+            - dark
+          example: light
+        locale:
+          type: string
+          enum:
+            - ru-RU
+            - en-US
+          example: ru-RU
+        defaultCurrency:
+          type: string
+          enum:
+            - RUB
+            - EUR
+            - USD
+          example: RUB
+          
+    EmployerListResponse:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Employer'
+        total:
+          type: integer
+          minimum: 0
+          description: Общее количество заказчиков, удовлетворяющих фильтрам (не всех вообще)
+          example: 42
+
+    CreateEmployerRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Иван"
+        status:
+          type: string
+          enum:
+            - new
+            - active
+            - archived
+          default: new
+          example: new
+        company:
+          type: string
+          nullable: true
+          maxLength: 200
+          example: "ООО Вектор"
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          nullable: true
+          example: "example@gmail.com"
+        phoneNumber:
+          type: string
+          maxLength: 30
+          nullable: true
+          description: Свободный формат, только ограничение по длине
+          example: "8(999)875 33 44"
+        telegram:
+          type: string
+          maxLength: 64
+          nullable: true
+          example: "IvanVector26"
+        website:
+          type: string
+          format: uri
+          maxLength: 2048
+          nullable: true
+          example: "https://vector.com"
+        notes:
+          type: string
+          maxLength: 5000
+          nullable: true
+          example: "Предпочитает общение в telegram"
+
+    UpdateEmployerRequest:
+      type: object
+      description: Тело запроса для частичного обновления заказчика. Все поля опциональны.
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Иван"
+        status:
+          type: string
+          enum:
+            - new
+            - active
+            - archived
+          example: active
+        company:
+          type: string
+          nullable: true
+          maxLength: 200
+          example: "ИП Иванов"
+        email:
+          type: string
+          format: email
+          maxLength: 254
+          nullable: true
+          example: "exampleemail@gmail.com"
+        phoneNumber:
+          type: string
+          maxLength: 30
+          nullable: true
+          example: "8(999)875 33 44"
+        telegram:
+          type: string
+          maxLength: 64
+          nullable: true
+          example: "tID435"
+        website:
+          type: string
+          format: uri
+          maxLength: 2048
+          nullable: true
+          example: "https://example.com"
+        notes:
+          type: string
+          maxLength: 5000
+          nullable: true
+          example: "Больше не отвечает в telegram, лучше звонить после 4-х"
+
+    TaskListResponse:
+      type: object
+      required:
+        - items
+        - total
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Task'
+        total:
+          type: integer
+          minimum: 0
+          description: Общее количество задач, удовлетворяющих фильтрам (не всех вообще)
+          example: 42
+
+    CreateSubTaskInput:
+      type: object
+      required:
+        - order
+        - text
+      properties:
+        order:
+          type: integer
+          minimum: 0
+          description: Порядок подпункта в задаче (уникален в пределах задачи)
+          example: 0
+        isComplete:
+          type: boolean
+          default: false
+          example: false
+        text:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Договориться об оплате"
+
+    CreateTaskRequest:
+      type: object
+      required:
+        - title
+      properties:
+        employerId:
+          type: string
+          nullable: true
+          description: |
+            Идентификатор заказчика. `null` — задача без заказчика.
+            Если передан несуществующий / чужой / удалённый — 400 VALIDATION_ERROR, reason: not_found.
+          example: "ABC123de45"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: "Сделать лендинг"
+        currency:
+          type: string
+          enum:
+            - RUB
+            - EUR
+            - USD
+          description: |
+            Валюта задачи. Если не передана — берётся из `UserPreferences.defaultCurrency`,
+            иначе `RUB`.
+          example: RUB
+        priority:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          default: medium
+          example: medium
+        status:
+          type: string
+          enum:
+            - progress
+            - review
+            - done
+            - paid
+          default: progress
+          example: progress
+        description:
+          type: string
+          maxLength: 5000
+          nullable: true
+          example: "Заказчик предпочитает синие тона"
+        payment:
+          type: number
+          minimum: 0
+          default: 0
+          example: 4500
+        deadline:
+          type: string
+          format: date
+          nullable: true
+          example: "2026-10-08"
+        subTasks:
+          type: array
+          description: |
+            Подпункты задачи. Опционально — если не переданы, задача создаётся без подпунктов.
+            Поля `id` и `createdAt` генерируются сервером; если клиент их передал — игнорируются.
+          items:
+            $ref: '#/components/schemas/CreateSubTaskInput'
+
+    UpdateTaskRequest:
+      type: object
+      description: Тело запроса для частичного обновления задачи. Все поля опциональны.
+      properties:
+        employerId:
+          type: string
+          nullable: true
+          description: |
+            Идентификатор заказчика. `null` — отвязать задачу от заказчика.
+            Если передан несуществующий / чужой / удалённый — 400 VALIDATION_ERROR, reason: not_found.
+          example: "ABC123de45"
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: "Сделать лендинг"
+        currency:
+          type: string
+          enum:
+            - RUB
+            - EUR
+            - USD
+          example: RUB
+        priority:
+          type: string
+          enum:
+            - low
+            - medium
+            - high
+          example: high
+        status:
+          type: string
+          enum:
+            - progress
+            - review
+            - done
+            - paid
+          example: done
+        description:
+          type: string
+          maxLength: 5000
+          nullable: true
+          example: "Обновлённое описание"
+        payment:
+          type: number
+          minimum: 0
+          example: 5000
+        deadline:
+          type: string
+          format: date
+          nullable: true
+          example: "2026-10-15"
+
+    CreateSubTaskRequest:
+      type: object
+      required:
+        - order
+        - text
+      properties:
+        order:
+          type: integer
+          minimum: 0
+          description: |
+            Порядок подпункта в задаче. Уникален в пределах задачи.
+            Если `order` уже занят другим подпунктом — 400, `reason: not_unique`.
+            Пропуски в значениях допустимы (`0, 1, 5` — валидно).
+          example: 2
+        isComplete:
+          type: boolean
+          default: false
+          description: Если не передан — устанавливается `false`
+          example: false
+        text:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Дописать компонент хедера"
+
+    UpdateSubTaskRequest:
+      type: object
+      description: Тело запроса для частичного обновления подпункта. Все поля опциональны.
+      properties:
+        order:
+          type: integer
+          minimum: 0
+          description: |
+            Новый порядок подпункта в задаче. Уникален в пределах задачи.
+            Если совпадает с текущим значением — не ошибка.
+            Если занят другим подпунктом — 400, `reason: not_unique`.
+          example: 1
+        isComplete:
+          type: boolean
+          example: true
+        text:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: "Дописать компонент хедера"

@@ -1,0 +1,193 @@
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.task-item:hover {
+  border-color: var(--color-muted-gray);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+/* === Флаг приоритета === */
+.task-item__priority {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.task-item__flag {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background-color: var(--color-surface);
+  color: var(--color-muted-gray);
+}
+
+.task-item__flag--low {
+  color: var(--color-muted-gray);
+  background-color: var(--color-surface);
+}
+
+.task-item__flag--medium {
+  color: var(--color-primary);
+  background-color: var(--color-primary-soft);
+}
+
+.task-item__flag--high {
+  color: var(--color-danger-text);
+  background-color: var(--color-badge-overdue-bg);
+}
+
+/* === Основная часть === */
+.task-item__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.task-item__title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.task-item__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+/* === Бейдж статуса === */
+.task-item__badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.task-item__badge--progress {
+  background-color: var(--color-badge-progress-bg);
+  color: var(--color-badge-progress-text);
+}
+
+.task-item__badge--review {
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.task-item__badge--done {
+  background-color: var(--color-badge-paid-bg);
+  color: var(--color-status-text-strong);
+}
+
+.task-item__badge--paid {
+  background-color: var(--color-badge-paid-bg);
+  color: var(--color-badge-paid-text);
+}
+
+/* === Дедлайн === */
+.task-item__deadline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.task-item__deadline-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.task-item__deadline--soon {
+  color: #b45309;
+}
+
+.task-item__deadline--overdue {
+  color: var(--color-danger-text);
+}
+
+/* === Действия === */
+.task-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.task-item:hover .task-item__actions,
+.task-item:focus-within .task-item__actions {
+  opacity: 1;
+}
+
+.task-item__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.task-item__action:hover {
+  background-color: var(--color-hover);
+  color: var(--color-text);
+}
+
+.task-item__action--danger:hover {
+  background-color: var(--color-badge-overdue-bg);
+  color: var(--color-danger-text);
+}
+
+/* === Адаптив === */
+@media (max-width: 640px) {
+  .task-item {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+
+  .task-item__title {
+    font-size: 14px;
+  }
+
+  .task-item__actions {
+    opacity: 1;
+  }
+
+  .task-item__deadline {
+    font-size: 12px;
+  }
+}

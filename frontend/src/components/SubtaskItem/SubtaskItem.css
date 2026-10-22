@@ -1,0 +1,78 @@
+.subtask-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  transition: background-color 0.15s ease;
+}
+
+.subtask-item:hover {
+  background-color: var(--color-hover);
+}
+
+.subtask-item__check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.subtask-item__checkbox {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
+.subtask-item__text {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s ease;
+}
+
+/* Зачёркивание выполненного */
+.subtask-item__checkbox:checked + .subtask-item__text {
+  color: var(--color-muted-gray);
+  text-decoration: line-through;
+}
+
+/* === Кнопки действий === */
+.subtask-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.subtask-item__action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background-color: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--color-muted-gray);
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.subtask-item__action:hover {
+  background-color: var(--color-hover);
+  color: var(--color-text);
+}
+
+.subtask-item__action--danger:hover {
+  background-color: var(--color-badge-overdue-bg);
+  color: var(--color-danger-text);
+}

@@ -1,0 +1,262 @@
+.employer-form {
+  min-height: calc(100vh - 64px); /* 64px — высота Header */
+  background-color: var(--color-surface);
+  padding: 32px 0;
+}
+
+.employer-form__container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* === Шапка === */
+.employer-form__header {
+  margin-bottom: 24px;
+}
+
+.employer-form__title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.employer-form__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+.employer-form__subtitle {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+/* === Форма === */
+.employer-form__form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.employer-form__section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.employer-form__section-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+/* === Поля === */
+.employer-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.employer-form__label {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-status-text);
+}
+
+.employer-form__input,
+.employer-form__textarea {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.employer-form__textarea {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.5;
+}
+
+.employer-form__input::placeholder,
+.employer-form__textarea::placeholder {
+  color: var(--color-muted-gray);
+}
+
+.employer-form__input:focus,
+.employer-form__textarea:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+/* Поле с префиксом (@) */
+.employer-form__input-group {
+  position: relative;
+}
+
+.employer-form__input--with-prefix {
+  padding-left: 28px;
+}
+
+.employer-form__input-prefix {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--color-muted-gray);
+  pointer-events: none;
+}
+
+/* Сетка для полей в ряд */
+.employer-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* === Статусы (radio) === */
+.employer-form__status-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.employer-form__status {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.employer-form__status-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.employer-form__status-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.employer-form__status--new .employer-form__status-label {
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.employer-form__status--active .employer-form__status-label {
+  background-color: var(--color-badge-paid-bg);
+  color: var(--color-status-text-strong);
+}
+
+.employer-form__status--archived .employer-form__status-label {
+  background-color: var(--color-badge-progress-bg);
+  color: var(--color-text-muted);
+}
+
+.employer-form__status:hover .employer-form__status-label {
+  border-color: var(--color-border);
+}
+
+.employer-form__status-input:checked + .employer-form__status-label {
+  border-color: currentColor;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+/* === Действия === */
+.employer-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.employer-form__btn {
+  padding: 10px 20px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.employer-form__btn:active {
+  transform: translateY(1px);
+}
+
+.employer-form__btn--primary {
+  color: var(--color-bg);
+  background-color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+
+.employer-form__btn--primary:hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.employer-form__btn--secondary {
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+}
+
+.employer-form__btn--secondary:hover {
+  border-color: var(--color-muted-gray);
+  background-color: var(--color-surface);
+}
+
+/* === Адаптив === */
+@media (max-width: 640px) {
+  .employer-form {
+    padding: 20px 0;
+  }
+
+  .employer-form__title {
+    font-size: 22px;
+  }
+
+  .employer-form__section {
+    padding: 18px;
+  }
+
+  .employer-form__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .employer-form__actions {
+    flex-direction: column-reverse;
+  }
+
+  .employer-form__btn {
+    width: 100%;
+  }
+}

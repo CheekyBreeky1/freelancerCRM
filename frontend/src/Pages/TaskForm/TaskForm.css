@@ -1,0 +1,330 @@
+.task-form {
+  min-height: calc(100vh - 64px);
+  background-color: var(--color-surface);
+  padding: 32px 0;
+}
+
+.task-form__container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* === Шапка === */
+.task-form__header {
+  margin-bottom: 24px;
+}
+
+.task-form__title-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.task-form__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 800;
+  color: var(--color-text);
+  letter-spacing: -0.02em;
+}
+
+.task-form__subtitle {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--color-text-muted);
+}
+
+/* === Форма === */
+.task-form__form {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.task-form__section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+}
+
+.task-form__section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.task-form__section-title {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--color-text);
+  letter-spacing: -0.01em;
+}
+
+/* === Поля === */
+.task-form__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.task-form__label {
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-status-text);
+}
+
+.task-form__input,
+.task-form__textarea,
+.task-form__select {
+  width: 100%;
+  padding: 10px 12px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.task-form__textarea {
+  resize: vertical;
+  min-height: 96px;
+  line-height: 1.5;
+}
+
+.task-form__select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%236B7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  cursor: pointer;
+}
+
+.task-form__input::placeholder,
+.task-form__textarea::placeholder {
+  color: var(--color-muted-gray);
+}
+
+.task-form__input:focus,
+.task-form__textarea:focus,
+.task-form__select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-soft);
+}
+
+/* Поле с суффиксом (₽) */
+.task-form__input-group {
+  position: relative;
+}
+
+.task-form__input--with-suffix {
+  padding-right: 36px;
+}
+
+.task-form__input-suffix {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  transform: translateY(-50%);
+  font-family: var(--font-ui);
+  font-size: 14px;
+  color: var(--color-muted-gray);
+  pointer-events: none;
+}
+
+/* Сетка для полей в ряд */
+.task-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+/* === Статусы (radio) === */
+.task-form__status-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.task-form__status {
+  position: relative;
+  display: inline-flex;
+  cursor: pointer;
+}
+
+.task-form__status-input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.task-form__status-label {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 14px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+/* Цвета по умолчанию */
+.task-form__status--progress .task-form__status-label {
+  background-color: var(--color-badge-progress-bg);
+  color: var(--color-badge-progress-text);
+}
+
+.task-form__status--review .task-form__status-label {
+  background-color: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+
+.task-form__status--done .task-form__status-label {
+  background-color: var(--color-badge-paid-bg);
+  color: var(--color-status-text-strong);
+}
+
+.task-form__status--paid .task-form__status-label {
+  background-color: var(--color-badge-paid-bg);
+  color: var(--color-badge-paid-text);
+}
+
+/* Ховер */
+.task-form__status:hover .task-form__status-label {
+  border-color: var(--color-border);
+}
+
+/* Выбранное состояние — обводка + усиленная тень */
+.task-form__status-input:checked + .task-form__status-label {
+  border-color: currentColor;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+}
+
+/* === Подпункты === */
+.task-form__add-subtask {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background-color: var(--color-primary-soft);
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.task-form__add-subtask:hover {
+  background-color: var(--color-primary-soft-hover);
+}
+
+.task-form__subtasks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.task-form__subtasks-empty {
+  margin: 0;
+  padding: 16px;
+  font-family: var(--font-ui);
+  font-size: 13px;
+  color: var(--color-text-muted);
+  text-align: center;
+  background-color: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: 10px;
+}
+
+/* === Действия === */
+.task-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.task-form__btn {
+  padding: 10px 20px;
+  font-family: var(--font-ui);
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.task-form__btn:active {
+  transform: translateY(1px);
+}
+
+.task-form__btn--primary {
+  color: var(--color-bg);
+  background-color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+}
+
+.task-form__btn--primary:hover {
+  background-color: var(--color-primary-hover);
+  border-color: var(--color-primary-hover);
+}
+
+.task-form__btn--secondary {
+  color: var(--color-text);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+}
+
+.task-form__btn--secondary:hover {
+  border-color: var(--color-muted-gray);
+  background-color: var(--color-surface);
+}
+
+/* === Адаптив === */
+@media (max-width: 640px) {
+  .task-form {
+    padding: 20px 0;
+  }
+
+  .task-form__title {
+    font-size: 22px;
+  }
+
+  .task-form__section {
+    padding: 18px;
+  }
+
+  .task-form__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .task-form__actions {
+    flex-direction: column-reverse;
+  }
+
+  .task-form__btn {
+    width: 100%;
+  }
+}
