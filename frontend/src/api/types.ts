@@ -1,0 +1,23 @@
+import type { components } from './schema';
+
+export type User = components['schemas']['User'];
+export type UserPreferences = components['schemas']['UserPreferences'];
+export type UserWithPreferences = components['schemas']['UserWithPreferences'];
+export type Employer = components['schemas']['Employer'];
+export type Task = components['schemas']['Task'];
+export type SubTask = components['schemas']['SubTask'];
+export type ErrorResponse = components['schemas']['ErrorResponse'];
+export type AuthResponse = components['schemas']['AuthResponse'];
+export type LoginRequest = components['schemas']['LoginRequest'];
+export type RegisterRequest = components['schemas']['RegisterRequest'];
+export type CreateEmployerRequest = components['schemas']['CreateEmployerRequest'];
+export type UpdateEmployerRequest = components['schemas']['UpdateEmployerRequest'];
+export type EmployerListResponse = components['schemas']['EmployerListResponse'];
+export type CreateTaskRequest = components['schemas']['CreateTaskRequest'];
+export type UpdateTaskRequest = components['schemas']['UpdateTaskRequest'];
+export type TaskListResponse = components['schemas']['TaskListResponse'];
+export type CreateSubTaskRequest = components['schemas']['CreateSubTaskRequest'];
+export type UpdateSubTaskRequest = components['schemas']['UpdateSubTaskRequest'];
+export type RefreshResponse = components['schemas']['RefreshResponse'];
+export type UpdateUserRequest = components['schemas']['UpdateUserRequest'];
+export type UpdateUserPreferencesRequest = components['schemas']['UpdateUserPreferencesRequest'];
