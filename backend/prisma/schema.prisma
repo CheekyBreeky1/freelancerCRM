@@ -1,0 +1,88 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @db.Char(10)
+  name      String   @db.VarChar(100)
+  email     String   @unique @db.VarChar(254)
+  password  String   @db.Char(60)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  preferences UserPreferences?
+  employers   Employer[]
+  tasks       Task[]
+}
+
+model UserPreferences {
+  userId          String   @id @db.Char(10)
+  theme           String   @default("light") @db.VarChar(20)
+  locale          String   @default("ru-RU") @db.VarChar(20)
+  defaultCurrency String   @default("RUB") @db.VarChar(20)
+  user            User     @relation(fields: [userId], references: [id])
+}
+
+model Employer {
+  id        String   @id @db.Char(10)
+  userId    String   @db.Char(10)
+  name      String   @db.VarChar(100)
+  status    String   @default("new") @db.VarChar(20)
+  company   String?  @db.VarChar(200)
+  email     String?  @db.VarChar(254)
+  phoneNumber String? @db.VarChar(30)
+  telegram  String?  @db.VarChar(64)
+  website   String?  @db.VarChar(2048)
+  notes     String?  @db.VarChar(5000)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  deletedAt DateTime?
+
+  user   User    @relation(fields: [userId], references: [id])
+  tasks  Task[]
+}
+
+model Task {
+  id          String   @id @db.Char(10)
+  userId      String   @db.Char(10)
+  employerId  String?  @db.Char(10)
+  title       String   @db.VarChar(200)
+  currency    String   @default("RUB") @db.VarChar(20)
+  priority    String   @default("medium") @db.VarChar(20)
+  status      String   @default("progress") @db.VarChar(20)
+  description String?  @db.VarChar(5000)
+  payment     Float    @default(0)
+  deadline    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  deletedAt   DateTime?
+
+  user     User      @relation(fields: [userId], references: [id])
+  employer Employer? @relation(fields: [employerId], references: [id])
+  subTasks SubTask[]
+}
+
+model SubTask {
+  id         String   @id @db.Char(10)
+  taskId     String   @db.Char(10)
+  order      Int
+  isComplete Boolean  @default(false)
+  text       String   @db.VarChar(100)
+  createdAt  DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id])
+
+  @@unique([taskId, order])
+}

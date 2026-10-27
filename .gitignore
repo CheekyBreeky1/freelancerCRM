@@ -23,5 +23,9 @@ dist-ssr
 *.sln
 *.sw?
 
+node_modules
+
 #generated file. Use *npm run gen:api* to get
 schema.d.ts
+
+.env.test
