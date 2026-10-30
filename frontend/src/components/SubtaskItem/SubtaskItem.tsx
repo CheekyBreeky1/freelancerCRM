@@ -1,7 +1,20 @@
-import React from 'react';
 import './SubtaskItem.css';
 
-const SubtaskItem = ({ text, done = false, onToggle, onEdit, onRemove }) => {
+type SubtaskItemProps = {
+  text: string;
+  done?: boolean;
+  onToggle?: () => void;
+  onEdit?: () => void;
+  onRemove?: () => void;
+};
+
+const SubtaskItem = ({
+  text,
+  done = false,
+  onToggle,
+  onEdit,
+  onRemove,
+}: SubtaskItemProps) => {
   return (
     <li className="subtask-item">
       <label className="subtask-item__check">

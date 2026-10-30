@@ -3,6 +3,9 @@ import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import authRoutes from './modules/auth/auth.routes';
+import usersRoutes from './modules/users/users.routes';
+import employersRoutes from './modules/employers/employers.routes';
+import tasksRoutes from './modules/tasks/tasks.routes';
 import { errorHandler } from './middleware/errorHandler';
 
 dotenv.config();
@@ -19,8 +22,11 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok' });
 });
 
-// Auth routes
+// Routes
 app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/users', usersRoutes);
+app.use('/api/v1/employers', employersRoutes);
+app.use('/api/v1/tasks', tasksRoutes);
 
 // Error handler — ВСЕГДА последним
 app.use(errorHandler);

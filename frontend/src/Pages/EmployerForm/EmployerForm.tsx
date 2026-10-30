@@ -1,24 +1,36 @@
-import React from 'react';
 import './EmployerForm.css';
+
+type EmployerStatus = 'new' | 'active' | 'archived';
+
+type EmployerFormProps = {
+  id?: string;
+  name?: string;
+  company?: string;
+  email?: string;
+  phoneNumber?: string;
+  telegram?: string;
+  website?: string;
+  notes?: string;
+  status?: EmployerStatus;
+};
+
+const statusOptions: { value: EmployerStatus; label: string }[] = [
+  { value: 'new', label: 'Новый' },
+  { value: 'active', label: 'Активный' },
+  { value: 'archived', label: 'В архиве' },
+];
 
 const EmployerForm = ({
   id,
   name = '',
   company = '',
   email = '',
-  phone = '',
+  phoneNumber = '',
   telegram = '',
   website = '',
   notes = '',
   status = 'new',
-  projectsCount = 0,
-}) => {
-  const statusOptions = [
-    { value: 'new', label: 'Новый' },
-    { value: 'active', label: 'Активный' },
-    { value: 'archived', label: 'В архиве' },
-  ];
-
+}: EmployerFormProps) => {
   const isEditing = Boolean(id);
 
   return (
@@ -118,7 +130,7 @@ const EmployerForm = ({
                   id="employer-phone"
                   className="employer-form__input"
                   type="tel"
-                  defaultValue={phone}
+                  defaultValue={phoneNumber}
                   placeholder="+7 900 000-00-00"
                 />
               </div>
@@ -170,7 +182,6 @@ const EmployerForm = ({
                 placeholder="Особенности работы, предпочтения по связи, детали..."
               />
             </div>
-
           </section>
 
           {/* === Действия === */}

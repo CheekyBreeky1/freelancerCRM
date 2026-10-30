@@ -61,7 +61,9 @@ model Task {
   title       String   @db.VarChar(200)
   currency    String   @default("RUB") @db.VarChar(20)
   priority    String   @default("medium") @db.VarChar(20)
+  priorityWeight Int    @default(1)
   status      String   @default("progress") @db.VarChar(20)
+  statusWeight   Int    @default(0)
   description String?  @db.VarChar(5000)
   payment     Float    @default(0)
   deadline    DateTime?

@@ -1,19 +1,29 @@
-import React from 'react';
 import './TaskItem.css';
+import type { Task } from '../../api/types';
+import { getDeadlineState, formatDeadline } from '../../utils/deadline';
 
-const TaskItem = ({ title, status, deadline, priority }) => {
-  const statusLabels = {
-    progress: 'В работе',
-    review: 'На проверке',
-    done: 'Готово',
-    paid: 'Оплачено',
-  };
+type TaskItemProps = {
+  task: Task;
+  onEdit?: () => void;
+  onRemove?: () => void;
+};
 
-  const priorityLabels = {
-    low: 'Низкий',
-    medium: 'Средний',
-    high: 'Высокий',
-  };
+const statusLabels: Record<Task['status'], string> = {
+  progress: 'В работе',
+  review: 'На проверке',
+  done: 'Готово',
+  paid: 'Оплачено',
+};
+
+const priorityLabels: Record<Task['priority'], string> = {
+  low: 'Низкий',
+  medium: 'Средний',
+  high: 'Высокий',
+};
+
+const TaskItem = ({ task, onEdit, onRemove }: TaskItemProps) => {
+  const { title, status, deadline, priority } = task;
+  const deadlineState = getDeadlineState(deadline);
 
   return (
     <article className={`task-item task-item--priority-${priority}`}>
@@ -39,7 +49,7 @@ const TaskItem = ({ title, status, deadline, priority }) => {
           <span className={`task-item__badge task-item__badge--${status}`}>
             {statusLabels[status]}
           </span>
-          <span className={`task-item__deadline task-item__deadline--${deadline.state}`}>
+          <span className={`task-item__deadline task-item__deadline--${deadlineState}`}>
             <span className="task-item__deadline-icon" aria-hidden="true">
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="2" y="3" width="10" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
@@ -47,13 +57,18 @@ const TaskItem = ({ title, status, deadline, priority }) => {
                 <path d="M5 2V4M9 2V4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
               </svg>
             </span>
-            Дедлайн: {deadline.date}
+            {deadline ? `Дедлайн: ${formatDeadline(deadline)}` : 'Без дедлайна'}
           </span>
         </div>
       </div>
 
       <div className="task-item__actions">
-        <button className="task-item__action" type="button" aria-label="Редактировать задачу">
+        <button
+          className="task-item__action"
+          type="button"
+          aria-label="Редактировать задачу"
+          onClick={onEdit}
+        >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M11.5 2.5L13.5 4.5L5.5 12.5L3 13L3.5 10.5L11.5 2.5Z"
@@ -63,7 +78,12 @@ const TaskItem = ({ title, status, deadline, priority }) => {
             />
           </svg>
         </button>
-        <button className="task-item__action task-item__action--danger" type="button" aria-label="Удалить задачу">
+        <button
+          className="task-item__action task-item__action--danger"
+          type="button"
+          aria-label="Удалить задачу"
+          onClick={onRemove}
+        >
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
             <path
               d="M3 4.5H13M6.5 4.5V3C6.5 2.44772 6.94772 2 7.5 2H8.5C9.05228 2 9.5 2.44772 9.5 3V4.5M5 4.5L5.5 13C5.5 13.5523 5.94772 14 6.5 14H9.5C10.0523 14 10.5 13.5523 10.5 13L11 4.5"

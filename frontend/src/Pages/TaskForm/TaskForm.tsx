@@ -1,6 +1,35 @@
-import React from 'react';
 import './TaskForm.css';
-import SubtaskItem from './../../components/SubtaskItem/SubtaskItem'
+import SubtaskItem from '../../components/SubtaskItem/SubtaskItem';
+import type { Employer, SubTask } from '../../api/types';
+
+type TaskStatus = 'progress' | 'review' | 'done' | 'paid';
+type TaskPriority = 'low' | 'medium' | 'high';
+
+type TaskFormProps = {
+  id?: string;
+  title?: string;
+  description?: string;
+  payment?: number | string;
+  deadline?: string;
+  employerId?: string;
+  employers?: Employer[];
+  subtasks?: SubTask[];
+  status?: TaskStatus;
+  priority?: TaskPriority;
+};
+
+const statusOptions: { value: TaskStatus; label: string }[] = [
+  { value: 'progress', label: 'В работе' },
+  { value: 'review', label: 'На проверке' },
+  { value: 'done', label: 'Готово' },
+  { value: 'paid', label: 'Оплачено' },
+];
+
+const priorityOptions: { value: TaskPriority; label: string }[] = [
+  { value: 'low', label: 'Низкий' },
+  { value: 'medium', label: 'Средний' },
+  { value: 'high', label: 'Высокий' },
+];
 
 const TaskForm = ({
   id,
@@ -13,38 +42,26 @@ const TaskForm = ({
   subtasks = [],
   status = 'progress',
   priority = 'medium',
-}) => {
-  const statusOptions = [
-    { value: 'progress', label: 'В работе' },
-    { value: 'review', label: 'На проверке' },
-    { value: 'done', label: 'Готово' },
-    { value: 'paid', label: 'Оплачено' },
-  ];
-
-  const priorityOptions = [
-    { value: 'low', label: 'Низкий' },
-    { value: 'medium', label: 'Средний' },
-    { value: 'high', label: 'Высокий' },
-  ];
-
+}: TaskFormProps) => {
   const isEditing = Boolean(id);
 
   const renderSubtasks = () => {
-    return (
-        subtasks.length > 0 ? (
-          <ul className="task-form__subtasks">
-            {subtasks.map((subtask) => (
-              <li key={subtask.id} className="task-form__subtask">
-                <SubtaskItem {...subtask}/>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="task-form__subtasks-empty">
-            Пока нет подпунктов. Разбейте задачу на шаги, чтобы отслеживать прогресс.
-          </p>
-        ))
-  }
+    return subtasks.length > 0 ? (
+      <ul className="task-form__subtasks">
+        {subtasks.map((subtask) => (
+          <SubtaskItem
+            key={subtask.id}
+            text={subtask.text}
+            done={subtask.isComplete}
+          />
+        ))}
+      </ul>
+    ) : (
+      <p className="task-form__subtasks-empty">
+        Пока нет подпунктов. Разбейте задачу на шаги, чтобы отслеживать прогресс.
+      </p>
+    );
+  };
 
   return (
     <main className="task-form">

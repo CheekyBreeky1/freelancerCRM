@@ -1,8 +1,8 @@
-import React from 'react';
+import { FormEvent } from 'react';
 import './Register.css';
 
 const Register = () => {
-  const handleSubmit = (event) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     // логика регистрации
   };

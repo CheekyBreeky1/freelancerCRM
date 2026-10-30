@@ -1,8 +1,8 @@
-import React from 'react';
+import { FormEvent } from 'react';
 import './Login.css';
 
 const Login = () => {
-  const handleSubmit = (event) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     // логика авторизации
   };

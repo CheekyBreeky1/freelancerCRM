@@ -1,29 +1,49 @@
-import React from 'react';
 import './TaskList.css';
-
 import TaskItem from '../../components/TaskItem/TaskItem';
+import type { Task } from '../../api/types';
 
-const tasks = [
+const tasks: Task[] = [
   {
-    id: 1,
+    id: 'task000001',
+    employerId: null,
     title: 'Сверстать лендинг для клиента',
-    status: 'progress',
-    deadline: { date: '12 октября', state: 'default' },
+    currency: 'RUB',
     priority: 'high',
+    status: 'progress',
+    description: null,
+    payment: 0,
+    deadline: '2026-10-12',
+    createdAt: '2026-10-01T10:00:00Z',
+    updatedAt: '2026-10-01T10:00:00Z',
+    deletedAt: null,
   },
   {
-    id: 2,
+    id: 'task000002',
+    employerId: null,
     title: 'Настроить аналитику',
-    status: 'review',
-    deadline: { date: '15 октября', state: 'soon' },
+    currency: 'RUB',
     priority: 'medium',
+    status: 'review',
+    description: null,
+    payment: 0,
+    deadline: '2026-10-15',
+    createdAt: '2026-10-02T10:00:00Z',
+    updatedAt: '2026-10-02T10:00:00Z',
+    deletedAt: null,
   },
   {
-    id: 3,
+    id: 'task000003',
+    employerId: null,
     title: 'Правки по дизайну',
-    status: 'paid',
-    deadline: { date: '1 октября', state: 'overdue' },
+    currency: 'RUB',
     priority: 'low',
+    status: 'paid',
+    description: null,
+    payment: 0,
+    deadline: '2026-10-01',
+    createdAt: '2026-10-03T10:00:00Z',
+    updatedAt: '2026-10-03T10:00:00Z',
+    deletedAt: null,
   },
 ];
 
@@ -65,22 +85,9 @@ const TaskList = () => {
         </div>
 
         <div className="task-list__body">
-          {/* Здесь будут элементы списка */}
           {tasks.map((task) => (
-            <TaskItem
-                key={task.id}
-                title={task.title}
-                status={task.status}
-                deadline={task.deadline}
-                priority={task.priority}
-              />
+            <TaskItem key={task.id} task={task} />
           ))}
-          {/*<div className="task-list__empty">
-            <p className="task-list__empty-title">Пока задач нет</p>
-            <p className="task-list__empty-text">
-              Нажмите «Добавить задачу», чтобы создать первую
-            </p>
-          </div>*/}
         </div>
       </div>
     </main>
